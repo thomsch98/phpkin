@@ -12,6 +12,11 @@ use whitemerry\phpkin\Identifier\Identifier;
 class Span
 {
     /**
+     * @var bool
+     */
+    protected $debug = false;
+
+    /**
      * @var Identifier
      */
     protected $id;
@@ -49,7 +54,7 @@ class Span
      * @param $annotationBlock AnnotationBlock Annotations with endpoints
      * @param $metadata Metadata Meta annotations
      * @param $traceId Identifier Trace identifier (default from TraceInfo::getTraceId())
-     * @param $parentId Identifier Parent identifier (default from TraceInfo::getTraceSpanId())
+     * @param $parentId Identifier Parent identifier (default from TraceInfo::getTraceParentSpanId())
      */
     function __construct(
         $id,
@@ -65,7 +70,24 @@ class Span
         $this->setAnnotationBlock($annotationBlock);
         $this->setMetadata($metadata);
         $this->setIdentifier('traceId', $traceId, [TracerInfo::class, 'getTraceId']);
-        $this->setIdentifier('parentId', $parentId, [TracerInfo::class, 'getTraceSpanId']);
+        $this->setIdentifier('parentId', $parentId, [TracerInfo::class, 'getTraceParentSpanId']);
+        $this->setDebug(TracerInfo::getDebug());
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getDebug()
+    {
+        return $this->debug;
+    }
+
+    /**
+     * @param mixed $debug
+     */
+    public function setDebug($debug)
+    {
+        $this->debug = $debug;
     }
 
     /**
@@ -79,6 +101,7 @@ class Span
             'id' => (string) $this->id,
             'traceId' => (string) $this->traceId,
             'name' => $this->name,
+            'debug' => $this->getDebug(),
             'timestamp' => $this->annotationBlock->getStartTimestamp(),
             'duration' => $this->annotationBlock->getDuration(),
             'annotations' => $this->annotationBlock->toArray()
@@ -93,14 +116,6 @@ class Span
         }
 
         return $span;
-    }
-
-    /**
-     * Remove ParentId
-     */
-    public function unsetParentId()
-    {
-        $this->parentId = null;
     }
 
     /**
@@ -170,7 +185,7 @@ class Span
             $identifier = call_user_func($default);
         }
 
-        if (!($identifier instanceof Identifier)) {
+        if ($identifier !== null && !($identifier instanceof Identifier)) {
             throw new \InvalidArgumentException('$identifier must be instance of Identifier');
         }
 

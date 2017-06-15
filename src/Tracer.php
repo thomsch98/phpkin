@@ -1,4 +1,5 @@
 <?php
+
 namespace whitemerry\phpkin;
 
 use whitemerry\phpkin\Identifier\Identifier;
@@ -13,6 +14,9 @@ use whitemerry\phpkin\Sampler\Sampler;
  */
 class Tracer
 {
+    const FLAG_EMPTY = 0;
+    const FLAG_DEBUG = 1;
+
     const FRONTEND = 'frontend';
     const BACKEND = 'backend';
 
@@ -32,6 +36,11 @@ class Tracer
     protected $logger;
 
     /**
+     * @var Metadata
+     */
+    protected $metaData;
+
+    /**
      * @var int
      */
     protected $startTimestamp;
@@ -47,31 +56,28 @@ class Tracer
     protected $profile = Tracer::FRONTEND;
 
     /**
-     * @var bool
-     */
-    protected $unsetParentIdForBackend = false;
-
-    /**
      * Tracer constructor.
-     * 
+     *
      * @param $name string Name of trace
      * @param $endpoint Endpoint Current application info
      * @param $logger Logger Trace save handler
      * @param $sampler bool|Sampler Set or calculate 'Sampled' - default true
      * @param $traceId Identifier TraceId - default TraceIdentifier
-     * @param $traceSpanId Identifier TraceSpanId/ParentSpanId/ParentId - default SpandIdentifier
+     * @param $traceSpanId Identifier TraceSpanId - default SpandIdentifier
+     * @param $traceParentSpanId Identifier ParentTraceSpanId - default null
+     * @param int $traceFlags - default 0
+     * @param Metadata $metadata Metadata for TraceSpan
      */
-    public function __construct($name, $endpoint, $logger, $sampler = null, $traceId = null, $traceSpanId = null)
+    public function __construct($name, $endpoint, $logger, $sampler = null, $traceId = null, $traceSpanId = null, $traceParentSpanId = null, $traceFlags = 0, $metadata = null)
     {
-        TracerInfo::init($sampler, $traceId, $traceSpanId);
+        TracerInfo::init($sampler, $traceId, $traceSpanId, $traceParentSpanId, $traceFlags);
 
         $this->setName($name);
         $this->setEndpoint($endpoint);
         $this->setLogger($logger);
 
         $this->startTimestamp = zipkin_timestamp();
-
-        $this->unsetParentIdForBackend = $traceSpanId === null;
+        $this->metaData = $metadata;
     }
 
     /**
@@ -107,21 +113,18 @@ class Tracer
             return;
         }
 
-        $unsetParentId = true;
-        if ($this->profile === static::BACKEND && !$this->unsetParentIdForBackend) {
-            $unsetParentId = false;
+        if ($this->profile == Tracer::FRONTEND) {
+            TracerInfo::setTraceParentSpanId(null);
         }
 
-        $this->addTraceSpan($unsetParentId);
+        $this->addTraceSpan();
         $this->logger->trace($this->spans);
     }
 
     /**
      * Adds main span to Spans
-     *
-     * @param $unsetParentId bool are you frontend?
      */
-    protected function addTraceSpan($unsetParentId = true)
+    protected function addTraceSpan()
     {
         $span = new Span(
             TracerInfo::getTraceSpanId(),
@@ -131,11 +134,12 @@ class Tracer
                 $this->startTimestamp,
                 zipkin_timestamp(),
                 AnnotationBlock::SERVER
-            )
+            ),
+            $this->metaData,
+            TracerInfo::getTraceId(),
+            TracerInfo::getTraceParentSpanId()
         );
-        if ($unsetParentId) {
-            $span->unsetParentId();
-        }
+
         $this->addSpan($span);
     }
 

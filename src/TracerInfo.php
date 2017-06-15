@@ -1,4 +1,5 @@
 <?php
+
 namespace whitemerry\phpkin;
 
 use whitemerry\phpkin\Identifier\Identifier;
@@ -17,6 +18,16 @@ use whitemerry\phpkin\Sampler\Sampler;
 class TracerInfo
 {
     /**
+     * @var integer
+     */
+    protected static $traceFlags;
+    
+    /**
+     * @var Identifier
+     */
+    protected static $traceParentSpanId;
+
+    /**
      * @var boolean
      */
     protected static $sampled;
@@ -31,16 +42,21 @@ class TracerInfo
      */
     protected static $traceSpanId;
 
+
     /**
-     * @param $sampler bool|Sampler Set or calucate 'Sampled' - default true
+     * @param $sampler bool|Sampler Set or calculate 'Sampled' - default true
      * @param $traceId Identifier TraceId - default TraceIdentifier
-     * @param $traceSpanId Identifier TraceSpanId/ParentSpanId/ParentId - default SpandIdentifier
+     * @param $traceSpanId Identifier TraceSpanId - default SpandIdentifier
+     * @param $traceParentSpanId Identifier ParentTraceSpanId - default null
+     * @param $traceFlags - default 0
      */
-    public static function init($sampler, $traceId, $traceSpanId)
+    public static function init($sampler, $traceId, $traceSpanId, $traceParentSpanId = null, $traceFlags = 0)
     {
         static::setSampled($sampler);
         static::setIdentifier('traceId', $traceId, TraceIdentifier::class);
         static::setIdentifier('traceSpanId', $traceSpanId, SpanIdentifier::class);
+        static::setTraceParentSpanId($traceParentSpanId);
+        static::setTraceFlags($traceFlags);
     }
 
     /**
@@ -128,6 +144,46 @@ class TracerInfo
         }
 
         static::${$field} = $identifier;
+    }
+
+    /**
+     * @param Identifier $traceParentSpanId
+     */
+    public static function setTraceParentSpanId($traceParentSpanId)
+    {
+        self::$traceParentSpanId = $traceParentSpanId;
+    }
+
+    /**
+     * @return Identifier
+     */
+    public static function getTraceParentSpanId()
+    {
+        return self::$traceParentSpanId;
+    }
+
+    /**
+     * @return mixed
+     */
+    public static function getDebug()
+    {
+        return (self::$traceFlags & Tracer::FLAG_DEBUG) == Tracer::FLAG_DEBUG;
+    }
+
+    /**
+     * @return mixed
+     */
+    public static function getTraceFlags()
+    {
+        return self::$traceFlags;
+    }
+
+    /**
+     * @param mixed $traceFlags
+     */
+    public static function setTraceFlags($traceFlags)
+    {
+        self::$traceFlags = $traceFlags;
     }
 
     /**
